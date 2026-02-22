@@ -7,6 +7,7 @@ import {
   IDLE_TIMEOUT,
   MAIN_GROUP_FOLDER,
   POLL_INTERVAL,
+  STORE_DIR,
   TRIGGER_PATTERN,
   WEB_GATEWAY_PORT,
   WEB_GATEWAY_TOKEN,
@@ -437,13 +438,19 @@ async function main(): Promise<void> {
   };
 
   // Create and connect channels
-  try {
-    const wa = new WhatsAppChannel(channelOpts);
-    await wa.connect();
-    whatsapp = wa;
-    channels.push(wa);
-  } catch (err) {
-    logger.warn({ err }, 'WhatsApp channel failed to connect (skipped)');
+  const whatsappAuthDir = path.join(STORE_DIR, 'auth');
+  const hasWhatsAppAuth = fs.existsSync(path.join(whatsappAuthDir, 'creds.json'));
+  if (hasWhatsAppAuth) {
+    try {
+      const wa = new WhatsAppChannel(channelOpts);
+      await wa.connect();
+      whatsapp = wa;
+      channels.push(wa);
+    } catch (err) {
+      logger.warn({ err }, 'WhatsApp channel failed to connect (skipped)');
+    }
+  } else {
+    logger.info('WhatsApp not configured (no auth credentials). Run /setup to enable.');
   }
 
   // Web gateway channel (self-hosted chat UI)
