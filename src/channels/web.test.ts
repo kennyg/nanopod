@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { _initTestDatabase, getRecentMessages, storeChatMetadata } from '../db.js';
+import { RegisteredGroup } from '../types.js';
 import { WebChannel, WebChannelOpts } from './web.js';
 
 // Shared test setup
@@ -10,7 +11,15 @@ function createOpts(overrides?: Partial<WebChannelOpts>): WebChannelOpts {
     token: 'test-token-123',
     onMessage: vi.fn(),
     onChatMetadata: vi.fn(),
-    registeredGroups: () => ({}),
+    registeredGroups: () => ({
+      'web:default': {
+        name: 'Web Chat',
+        folder: 'web-default',
+        trigger: '@Andy',
+        added_at: '2024-01-01T00:00:00.000Z',
+        requiresTrigger: false,
+      },
+    }),
     ...overrides,
   };
 }
@@ -53,7 +62,7 @@ describe('WebChannel', () => {
     await channel.connect();
     const port = getPort(channel);
 
-    const res = await fetch(`http://127.0.0.1:${port}/api/history`);
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms/default/history`);
     expect(res.status).toBe(401);
   });
 
@@ -62,7 +71,7 @@ describe('WebChannel', () => {
     await channel.connect();
     const port = getPort(channel);
 
-    const res = await fetch(`http://127.0.0.1:${port}/api/history?token=test-token-123`);
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms/default/history?token=test-token-123`);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);
@@ -73,7 +82,7 @@ describe('WebChannel', () => {
     await channel.connect();
     const port = getPort(channel);
 
-    const res = await fetch(`http://127.0.0.1:${port}/api/history`, {
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms/default/history`, {
       headers: { Authorization: 'Bearer test-token-123' },
     });
     expect(res.status).toBe(200);
@@ -85,7 +94,7 @@ describe('WebChannel', () => {
     await channel.connect();
     const port = getPort(channel);
 
-    const res = await fetch(`http://127.0.0.1:${port}/api/send?token=test-token-123`, {
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms/default/send?token=test-token-123`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: 'Hello agent' }),
@@ -115,13 +124,13 @@ describe('WebChannel', () => {
     expect(messages[0].content).toBe('Hello from bot');
     expect(messages[0].is_bot_message).toBeTruthy();
 
-    const res = await fetch(`http://127.0.0.1:${port}/api/history?token=test-token-123`);
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms/default/history?token=test-token-123`);
     const data = (await res.json()) as Array<{ content: string; is_bot_message: number }>;
     expect(data.length).toBe(1);
     expect(data[0].content).toBe('Hello from bot');
   });
 
-  it('broadcasts sendMessage to SSE clients', async () => {
+  it('broadcasts sendMessage to SSE clients for that room', async () => {
     channel = new WebChannel(createOpts());
     await channel.connect();
     const port = getPort(channel);
@@ -129,8 +138,8 @@ describe('WebChannel', () => {
     // Create chat record (FK constraint requires it)
     storeChatMetadata('web:default', new Date().toISOString(), 'Web Chat', 'web', false);
 
-    // Connect SSE client
-    const sseResponse = await fetch(`http://127.0.0.1:${port}/api/events?token=test-token-123`);
+    // Connect SSE client to default room
+    const sseResponse = await fetch(`http://127.0.0.1:${port}/api/rooms/default/events?token=test-token-123`);
     const reader = sseResponse.body!.getReader();
     const decoder = new TextDecoder();
 
@@ -150,12 +159,12 @@ describe('WebChannel', () => {
     reader.cancel();
   });
 
-  it('rejects POST /api/send with missing text', async () => {
+  it('rejects POST /api/rooms/:room/send with missing text', async () => {
     channel = new WebChannel(createOpts());
     await channel.connect();
     const port = getPort(channel);
 
-    const res = await fetch(`http://127.0.0.1:${port}/api/send?token=test-token-123`, {
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms/default/send?token=test-token-123`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -163,7 +172,7 @@ describe('WebChannel', () => {
     expect(res.status).toBe(400);
   });
 
-  it('serves HTML at root with valid token', async () => {
+  it('serves room list HTML at root with valid token', async () => {
     channel = new WebChannel(createOpts());
     await channel.connect();
     const port = getPort(channel);
@@ -173,5 +182,181 @@ describe('WebChannel', () => {
     expect(res.headers.get('content-type')).toContain('text/html');
     const html = await res.text();
     expect(html).toContain('NanoPod');
+    expect(html).toContain('room-list');
+  });
+
+  it('serves chat UI at /r/{room} with valid token', async () => {
+    channel = new WebChannel(createOpts());
+    await channel.connect();
+    const port = getPort(channel);
+
+    const res = await fetch(`http://127.0.0.1:${port}/r/default?token=test-token-123`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('NanoPod');
+    expect(html).toContain('/api/rooms/');
+  });
+
+  it('returns 404 for unknown room at /r/{room}', async () => {
+    channel = new WebChannel(createOpts());
+    await channel.connect();
+    const port = getPort(channel);
+
+    const res = await fetch(`http://127.0.0.1:${port}/r/nonexistent?token=test-token-123`);
+    expect(res.status).toBe(404);
+  });
+
+  it('lists web: rooms via GET /api/rooms', async () => {
+    const groups: Record<string, RegisteredGroup> = {
+      'web:default': {
+        name: 'Web Chat',
+        folder: 'web-default',
+        trigger: '@Andy',
+        added_at: '2024-01-01T00:00:00.000Z',
+        requiresTrigger: false,
+      },
+      'web:work': {
+        name: 'Work',
+        folder: 'web-work',
+        trigger: '@Andy',
+        added_at: '2024-01-02T00:00:00.000Z',
+        requiresTrigger: false,
+      },
+      'tg:123': {
+        name: 'Telegram Group',
+        folder: 'tg-group',
+        trigger: '@Andy',
+        added_at: '2024-01-01T00:00:00.000Z',
+      },
+    };
+    channel = new WebChannel(createOpts({ registeredGroups: () => groups }));
+    await channel.connect();
+    const port = getPort(channel);
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms?token=test-token-123`);
+    expect(res.status).toBe(200);
+    const rooms = (await res.json()) as Array<{ slug: string; name: string; jid: string }>;
+    expect(rooms.length).toBe(2);
+    expect(rooms.map((r) => r.slug).sort()).toEqual(['default', 'work']);
+    // Should not include Telegram group
+    expect(rooms.every((r) => r.jid.startsWith('web:'))).toBe(true);
+  });
+
+  it('creates a new room via POST /api/rooms', async () => {
+    const groups: Record<string, RegisteredGroup> = {};
+    const onRegisterGroup = vi.fn((jid: string, group: RegisteredGroup) => {
+      groups[jid] = group;
+    });
+    channel = new WebChannel(createOpts({
+      registeredGroups: () => groups,
+      onRegisterGroup,
+    }));
+    await channel.connect();
+    const port = getPort(channel);
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms?token=test-token-123`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'My Project' }),
+    });
+
+    expect(res.status).toBe(201);
+    const data = (await res.json()) as { slug: string; name: string; jid: string };
+    expect(data.slug).toBe('my-project');
+    expect(data.jid).toBe('web:my-project');
+    expect(data.name).toBe('My Project');
+    expect(onRegisterGroup).toHaveBeenCalledOnce();
+    expect(onRegisterGroup.mock.calls[0][0]).toBe('web:my-project');
+    expect(onRegisterGroup.mock.calls[0][1].folder).toBe('web-my-project');
+    expect(onRegisterGroup.mock.calls[0][1].requiresTrigger).toBe(false);
+  });
+
+  it('rejects duplicate room creation', async () => {
+    const groups: Record<string, RegisteredGroup> = {
+      'web:work': {
+        name: 'Work',
+        folder: 'web-work',
+        trigger: '@Andy',
+        added_at: '2024-01-01T00:00:00.000Z',
+        requiresTrigger: false,
+      },
+    };
+    channel = new WebChannel(createOpts({
+      registeredGroups: () => groups,
+      onRegisterGroup: vi.fn(),
+    }));
+    await channel.connect();
+    const port = getPort(channel);
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms?token=test-token-123`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Work' }),
+    });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('isolates SSE events between rooms', async () => {
+    const groups: Record<string, RegisteredGroup> = {
+      'web:room-a': {
+        name: 'Room A',
+        folder: 'web-room-a',
+        trigger: '@Andy',
+        added_at: '2024-01-01T00:00:00.000Z',
+        requiresTrigger: false,
+      },
+      'web:room-b': {
+        name: 'Room B',
+        folder: 'web-room-b',
+        trigger: '@Andy',
+        added_at: '2024-01-01T00:00:00.000Z',
+        requiresTrigger: false,
+      },
+    };
+    channel = new WebChannel(createOpts({ registeredGroups: () => groups }));
+    await channel.connect();
+    const port = getPort(channel);
+
+    // Create chat records for both rooms
+    storeChatMetadata('web:room-a', new Date().toISOString(), 'Room A', 'web', false);
+    storeChatMetadata('web:room-b', new Date().toISOString(), 'Room B', 'web', false);
+
+    // Connect SSE to room-a
+    const sseA = await fetch(`http://127.0.0.1:${port}/api/rooms/room-a/events?token=test-token-123`);
+    const readerA = sseA.body!.getReader();
+    const decoder = new TextDecoder();
+
+    // Read :ok from room-a
+    const { value: initA } = await readerA.read();
+    expect(decoder.decode(initA)).toContain(':ok');
+
+    // Send a message to room-b — should NOT appear in room-a's SSE
+    await channel.sendMessage('web:room-b', 'Message for room B');
+
+    // Send a message to room-a — should appear
+    await channel.sendMessage('web:room-a', 'Message for room A');
+
+    // Read room-a's event — should only contain room-a's message
+    const { value: eventA } = await readerA.read();
+    const textA = decoder.decode(eventA);
+    expect(textA).toContain('Message for room A');
+    expect(textA).not.toContain('Message for room B');
+
+    readerA.cancel();
+  });
+
+  it('returns 404 when sending to non-existent room', async () => {
+    channel = new WebChannel(createOpts());
+    await channel.connect();
+    const port = getPort(channel);
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/rooms/nonexistent/send?token=test-token-123`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'Hello' }),
+    });
+    expect(res.status).toBe(404);
   });
 });

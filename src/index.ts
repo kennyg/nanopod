@@ -459,16 +459,17 @@ async function main(): Promise<void> {
       port: WEB_GATEWAY_PORT,
       token: WEB_GATEWAY_TOKEN,
       ...channelOpts,
+      onRegisterGroup: registerGroup,
     });
     channels.push(web);
     await web.connect();
 
-    // Auto-register web:default as a no-trigger group
-    const webJid = 'web:default';
-    if (!registeredGroups[webJid]) {
-      registerGroup(webJid, {
+    // Auto-register web:default only if no web: rooms exist yet (first-run convenience)
+    const hasWebRooms = Object.keys(registeredGroups).some((jid) => jid.startsWith('web:'));
+    if (!hasWebRooms) {
+      registerGroup('web:default', {
         name: 'Web Chat',
-        folder: 'web-chat',
+        folder: 'web-default',
         trigger: `@${ASSISTANT_NAME}`,
         added_at: new Date().toISOString(),
         requiresTrigger: false,

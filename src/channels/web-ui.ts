@@ -2,13 +2,13 @@
  * Self-contained chat UI served as a single HTML page.
  * Inline CSS + JS, no build tooling required.
  */
-export function getWebUiHtml(token: string): string {
+export function getWebUiHtml(token: string, room: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>NanoPod</title>
+<title>NanoPod — ${escapeHtml(room)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -23,6 +23,11 @@ export function getWebUiHtml(token: string): string {
     flex-shrink: 0;
   }
   #header h1 { font-size: 16px; font-weight: 600; }
+  #back-link {
+    color: #888; text-decoration: none; font-size: 14px;
+    margin-right: 4px;
+  }
+  #back-link:hover { color: #e0e0e0; }
   #status {
     width: 8px; height: 8px; border-radius: 50%;
     background: #666; flex-shrink: 0;
@@ -76,8 +81,9 @@ export function getWebUiHtml(token: string): string {
 </head>
 <body>
 <div id="header">
+  <a id="back-link" href="/?token=${encodeURIComponent(token)}">&larr;</a>
   <div id="status"></div>
-  <h1>NanoPod</h1>
+  <h1>${escapeHtml(room)}</h1>
 </div>
 <div id="messages"></div>
 <div id="input-area">
@@ -87,6 +93,7 @@ export function getWebUiHtml(token: string): string {
 <script>
 (function() {
   const token = ${JSON.stringify(token)};
+  const room = ${JSON.stringify(room)};
   const messagesEl = document.getElementById('messages');
   const inputEl = document.getElementById('input');
   const sendBtn = document.getElementById('send-btn');
@@ -128,7 +135,7 @@ export function getWebUiHtml(token: string): string {
   }
 
   // Load history
-  fetch('/api/history?token=' + encodeURIComponent(token))
+  fetch('/api/rooms/' + encodeURIComponent(room) + '/history?token=' + encodeURIComponent(token))
     .then(r => r.json())
     .then(msgs => { msgs.forEach(appendMessage); scrollToBottom(); })
     .catch(err => console.error('History load failed:', err));
@@ -137,7 +144,7 @@ export function getWebUiHtml(token: string): string {
   let evtSource;
   function connectSSE() {
     statusEl.className = 'connecting';
-    evtSource = new EventSource('/api/events?token=' + encodeURIComponent(token));
+    evtSource = new EventSource('/api/rooms/' + encodeURIComponent(room) + '/events?token=' + encodeURIComponent(token));
     evtSource.onopen = function() { statusEl.className = 'connected'; };
     evtSource.addEventListener('message', function(e) {
       try {
@@ -160,7 +167,7 @@ export function getWebUiHtml(token: string): string {
     inputEl.value = '';
     inputEl.style.height = 'auto';
     sendBtn.disabled = true;
-    fetch('/api/send?token=' + encodeURIComponent(token), {
+    fetch('/api/rooms/' + encodeURIComponent(room) + '/send?token=' + encodeURIComponent(token), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text }),
@@ -190,4 +197,171 @@ export function getWebUiHtml(token: string): string {
 </script>
 </body>
 </html>`;
+}
+
+/**
+ * Room list page — shows all web: rooms with links.
+ */
+export function getRoomListHtml(token: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>NanoPod — Rooms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1a1a2e; color: #e0e0e0;
+    height: 100dvh; display: flex; flex-direction: column;
+  }
+  #header {
+    padding: 12px 16px; background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  #header h1 { font-size: 16px; font-weight: 600; }
+  #content {
+    flex: 1; overflow-y: auto; padding: 16px;
+  }
+  .room-list {
+    list-style: none; display: flex; flex-direction: column; gap: 8px;
+  }
+  .room-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; background: #222244; border-radius: 10px;
+    text-decoration: none; color: #e0e0e0;
+    transition: background 0.15s;
+  }
+  .room-item:hover { background: #2a2a55; }
+  .room-name { font-size: 15px; font-weight: 500; }
+  .room-meta { font-size: 12px; color: #888; }
+  .room-arrow { color: #666; font-size: 18px; }
+  #new-room-form {
+    display: flex; gap: 8px; margin-top: 16px;
+  }
+  #new-room-input {
+    flex: 1; padding: 10px 14px; border-radius: 20px;
+    border: 1px solid #0f3460; background: #1a1a2e; color: #e0e0e0;
+    font-size: 14px; font-family: inherit; outline: none;
+  }
+  #new-room-input:focus { border-color: #533483; }
+  #new-room-input::placeholder { color: #666; }
+  #new-room-btn {
+    padding: 10px 18px; border-radius: 20px;
+    border: none; background: #533483; color: #fff;
+    font-size: 14px; cursor: pointer; font-weight: 600;
+    white-space: nowrap;
+  }
+  #new-room-btn:hover { background: #6a42a0; }
+  #new-room-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .empty-state {
+    text-align: center; color: #666; padding: 40px 16px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>NanoPod</h1>
+</div>
+<div id="content">
+  <ul class="room-list" id="room-list"></ul>
+  <div id="new-room-form">
+    <input id="new-room-input" type="text" placeholder="New room name..." maxlength="50" />
+    <button id="new-room-btn">Create</button>
+  </div>
+</div>
+<script>
+(function() {
+  const token = ${JSON.stringify(token)};
+  const listEl = document.getElementById('room-list');
+  const inputEl = document.getElementById('new-room-input');
+  const createBtn = document.getElementById('new-room-btn');
+
+  function formatDate(ts) {
+    try {
+      const d = new Date(ts);
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch { return ''; }
+  }
+
+  function renderRooms(rooms) {
+    listEl.innerHTML = '';
+    if (rooms.length === 0) {
+      listEl.innerHTML = '<li class="empty-state">No rooms yet. Create one below.</li>';
+      return;
+    }
+    for (const room of rooms) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.className = 'room-item';
+      a.href = '/r/' + encodeURIComponent(room.slug) + '?token=' + encodeURIComponent(token);
+      a.innerHTML =
+        '<div><div class="room-name">' + escapeHtml(room.name) + '</div>' +
+        '<div class="room-meta">Created ' + formatDate(room.added_at) + '</div></div>' +
+        '<span class="room-arrow">&rsaquo;</span>';
+      li.appendChild(a);
+      listEl.appendChild(li);
+    }
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // Load rooms
+  fetch('/api/rooms?token=' + encodeURIComponent(token))
+    .then(r => r.json())
+    .then(rooms => renderRooms(rooms))
+    .catch(err => console.error('Failed to load rooms:', err));
+
+  // Create room
+  function createRoom() {
+    const name = inputEl.value.trim();
+    if (!name) return;
+    createBtn.disabled = true;
+    fetch('/api/rooms?token=' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name }),
+    })
+    .then(r => {
+      if (!r.ok) return r.json().then(d => { throw new Error(d.error || 'Failed'); });
+      return r.json();
+    })
+    .then(data => {
+      inputEl.value = '';
+      window.location.href = '/r/' + encodeURIComponent(data.slug) + '?token=' + encodeURIComponent(token);
+    })
+    .catch(err => {
+      alert('Error: ' + err.message);
+    })
+    .finally(() => { createBtn.disabled = false; });
+  }
+
+  createBtn.addEventListener('click', createRoom);
+  inputEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      createRoom();
+    }
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+/** Simple HTML escape for server-side template interpolation */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
