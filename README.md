@@ -15,7 +15,11 @@
 
 **New:** First AI assistant to support [Agent Swarms](https://code.claude.com/docs/en/agent-teams). Spin up teams of agents that collaborate in your chat.
 
-## Why I Built This
+## Why "NanoPod"?
+
+This is a fork of [NanoClaw](https://github.com/qwibitai/nanoclaw), renamed to distance from the "Claw" branding. The "Claw" family of projects (Clawdbot, OpenClaw, NanoClaw) trade on a phonetic play on "Claude" — which at best creates brand confusion with Anthropic, and at worst looks like an attempt to draft off their name for credibility. We liked the project's architecture but not the implied association. "NanoPod" reflects what the project actually does: runs lightweight agents in isolated container pods.
+
+## Why This Project
 
 [OpenClaw](https://github.com/openclaw/openclaw) is an impressive project with a great vision. But I can't sleep well running software I don't understand with access to my life. OpenClaw has 52+ modules, 8 config management files, 45+ dependencies, and abstractions for 15 channel providers. Security is application-level (allowlists, pairing codes) rather than OS isolation. Everything runs in one Node process with shared memory.
 
