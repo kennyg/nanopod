@@ -308,6 +308,25 @@ export function getNewMessages(
   return { messages: rows, newTimestamp };
 }
 
+/**
+ * Get recent messages for a chat including bot messages.
+ * Used by the web UI to display full conversation history.
+ */
+export function getRecentMessages(
+  chatJid: string,
+  limit = 50,
+): NewMessage[] {
+  const sql = `
+    SELECT id, chat_jid, sender, sender_name, content, timestamp, is_from_me, is_bot_message
+    FROM messages
+    WHERE chat_jid = ?
+    ORDER BY timestamp DESC
+    LIMIT ?
+  `;
+  const rows = db.prepare(sql).all(chatJid, limit) as NewMessage[];
+  return rows.reverse();
+}
+
 export function getMessagesSince(
   chatJid: string,
   sinceTimestamp: string,

@@ -1,4 +1,3 @@
-import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -45,11 +44,11 @@ export class WhatsAppChannel implements Channel {
 
   async connect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.connectInternal(resolve).catch(reject);
+      this.connectInternal(resolve, reject).catch(reject);
     });
   }
 
-  private async connectInternal(onFirstOpen?: () => void): Promise<void> {
+  private async connectInternal(onFirstOpen?: () => void, onFirstError?: (err: Error) => void): Promise<void> {
     const authDir = path.join(STORE_DIR, 'auth');
     fs.mkdirSync(authDir, { recursive: true });
 
@@ -69,13 +68,10 @@ export class WhatsAppChannel implements Channel {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        const msg =
-          'WhatsApp authentication required. Run /setup in Claude Code.';
-        logger.error(msg);
-        exec(
-          `osascript -e 'display notification "${msg}" with title "NanoPod" sound name "Basso"'`,
-        );
-        setTimeout(() => process.exit(1), 1000);
+        if (onFirstError) {
+          onFirstError(new Error('WhatsApp authentication required. Run /setup in Claude Code.'));
+          onFirstError = undefined;
+        }
       }
 
       if (connection === 'close') {

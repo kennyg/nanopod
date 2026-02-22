@@ -9,6 +9,8 @@ import { readEnvFile } from './env.js';
 const envConfig = readEnvFile([
   'ASSISTANT_NAME',
   'ASSISTANT_HAS_OWN_NUMBER',
+  'WEB_GATEWAY_PORT',
+  'WEB_GATEWAY_TOKEN',
 ]);
 
 export const ASSISTANT_NAME =
@@ -67,3 +69,11 @@ export const TRIGGER_PATTERN = new RegExp(
 // Uses system timezone by default
 export const TIMEZONE =
   process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// Web gateway
+export const WEB_GATEWAY_PORT = parseInt(
+  process.env.WEB_GATEWAY_PORT || envConfig.WEB_GATEWAY_PORT || '0',
+  10,
+);
+export const WEB_GATEWAY_TOKEN =
+  process.env.WEB_GATEWAY_TOKEN || envConfig.WEB_GATEWAY_TOKEN || '';

@@ -8,7 +8,10 @@ import {
   MAIN_GROUP_FOLDER,
   POLL_INTERVAL,
   TRIGGER_PATTERN,
+  WEB_GATEWAY_PORT,
+  WEB_GATEWAY_TOKEN,
 } from './config.js';
+import { WebChannel } from './channels/web.js';
 import { WhatsAppChannel } from './channels/whatsapp.js';
 import {
   ContainerOutput,
@@ -48,7 +51,7 @@ let registeredGroups: Record<string, RegisteredGroup> = {};
 let lastAgentTimestamp: Record<string, string> = {};
 let messageLoopRunning = false;
 
-let whatsapp: WhatsAppChannel;
+let whatsapp: WhatsAppChannel | undefined;
 const channels: Channel[] = [];
 const queue = new GroupQueue();
 
@@ -434,9 +437,37 @@ async function main(): Promise<void> {
   };
 
   // Create and connect channels
-  whatsapp = new WhatsAppChannel(channelOpts);
-  channels.push(whatsapp);
-  await whatsapp.connect();
+  try {
+    const wa = new WhatsAppChannel(channelOpts);
+    await wa.connect();
+    whatsapp = wa;
+    channels.push(wa);
+  } catch (err) {
+    logger.warn({ err }, 'WhatsApp channel failed to connect (skipped)');
+  }
+
+  // Web gateway channel (self-hosted chat UI)
+  if (WEB_GATEWAY_PORT > 0 && WEB_GATEWAY_TOKEN) {
+    const web = new WebChannel({
+      port: WEB_GATEWAY_PORT,
+      token: WEB_GATEWAY_TOKEN,
+      ...channelOpts,
+    });
+    channels.push(web);
+    await web.connect();
+
+    // Auto-register web:default as a no-trigger group
+    const webJid = 'web:default';
+    if (!registeredGroups[webJid]) {
+      registerGroup(webJid, {
+        name: 'Web Chat',
+        folder: 'web-chat',
+        trigger: `@${ASSISTANT_NAME}`,
+        added_at: new Date().toISOString(),
+        requiresTrigger: false,
+      });
+    }
+  }
 
   // Start subsystems (independently of connection handler)
   startSchedulerLoop({
