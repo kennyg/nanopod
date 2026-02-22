@@ -127,8 +127,8 @@ export function getWebUiHtml(token: string, room: string): string {
     const div = document.createElement('div');
     const isBot = msg.is_bot_message || (!msg.is_from_me && msg.sender === 'bot');
     div.className = 'msg ' + (isBot ? 'bot' : 'user');
-    // Show sender label for bot messages from subagents (sender differs from default 'bot')
-    if (isBot && msg.sender_name && msg.sender !== 'bot') {
+    // Show sender label on all bot messages
+    if (isBot && msg.sender_name) {
       const label = document.createElement('span');
       label.className = 'sender-label';
       label.textContent = msg.sender_name;
