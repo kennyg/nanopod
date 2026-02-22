@@ -1,0 +1,20 @@
+skill: web
+version: 1.0.0
+description: "Self-hosted web chat UI with SSE real-time updates"
+core_version: 0.1.0
+adds:
+  - src/channels/web.ts
+  - src/channels/web-ui.ts
+  - src/channels/web.test.ts
+  - config-examples/nginx-web-gateway.conf
+modifies:
+  - src/config.ts
+  - src/index.ts
+  - src/db.ts
+structured:
+  env_additions:
+    - WEB_GATEWAY_PORT
+    - WEB_GATEWAY_TOKEN
+conflicts: []
+depends: []
+test: "npx vitest run src/channels/web.test.ts"

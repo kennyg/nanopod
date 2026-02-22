@@ -22,6 +22,11 @@ groups/global/*
 *.keys.json
 .env
 
+# Claude config is globally ignored; override to track skill packages
+!.claude/
+.claude/*
+!.claude/skills/
+
 # OS
 .DS_Store
 
