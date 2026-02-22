@@ -8,7 +8,7 @@ cd "$SCRIPT_DIR"
 
 IMAGE_NAME="nanopod-agent"
 TAG="${1:-latest}"
-CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-container}"
 
 echo "Building NanoPod agent container image..."
 echo "Image: ${IMAGE_NAME}:${TAG}"
