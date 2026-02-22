@@ -5,13 +5,13 @@ description: Add Telegram as a channel. Can replace WhatsApp entirely or run alo
 
 # Add Telegram Channel
 
-This skill adds Telegram support to NanoClaw using the skills engine for deterministic code changes, then walks through interactive setup.
+This skill adds Telegram support to NanoPod using the skills engine for deterministic code changes, then walks through interactive setup.
 
 ## Phase 1: Pre-flight
 
 ### Check if already applied
 
-Read `.nanoclaw/state.yaml`. If `telegram` is in `applied_skills`, skip to Phase 3 (Setup). The code changes are already in place.
+Read `.nanopod/state.yaml`. If `telegram` is in `applied_skills`, skip to Phase 3 (Setup). The code changes are already in place.
 
 ### Ask the user
 
@@ -27,7 +27,7 @@ Run the skills engine to apply this skill's code package. The package files are 
 
 ### Initialize skills system (if needed)
 
-If `.nanoclaw/` directory doesn't exist yet:
+If `.nanopod/` directory doesn't exist yet:
 
 ```bash
 npx tsx scripts/apply-skill.ts --init
@@ -49,7 +49,7 @@ This deterministically:
 - Three-way merges updated routing tests into `src/routing.test.ts`
 - Installs the `grammy` npm dependency
 - Updates `.env.example` with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ONLY`
-- Records the application in `.nanoclaw/state.yaml`
+- Records the application in `.nanopod/state.yaml`
 
 If the apply reports merge conflicts, read the intent files:
 - `modify/src/index.ts.intent.md` — what changed and invariants for index.ts
@@ -118,7 +118,7 @@ Tell the user:
 
 ```bash
 npm run build
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+launchctl kickstart -k gui/$(id -u)/com.nanopod
 ```
 
 ## Phase 4: Registration
@@ -176,7 +176,7 @@ Tell the user:
 ### Check logs if needed
 
 ```bash
-tail -f logs/nanoclaw.log
+tail -f logs/nanopod.log
 ```
 
 ## Troubleshooting
@@ -186,7 +186,7 @@ tail -f logs/nanoclaw.log
 1. Check `TELEGRAM_BOT_TOKEN` is set in `.env` AND synced to `data/env/env`
 2. Check chat is registered: `sqlite3 store/messages.db "SELECT * FROM registered_groups WHERE jid LIKE 'tg:%'"`
 3. For non-main chats: message must include trigger pattern
-4. Service is running: `launchctl list | grep nanoclaw`
+4. Service is running: `launchctl list | grep nanopod`
 
 ### Bot only responds to @mentions in groups
 
@@ -198,7 +198,7 @@ Group Privacy is enabled (default). Fix:
 
 If `/chatid` doesn't work:
 - Verify token: `curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"`
-- Check bot is started: `tail -f logs/nanoclaw.log`
+- Check bot is started: `tail -f logs/nanopod.log`
 
 ## After Setup
 

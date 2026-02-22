@@ -5,7 +5,7 @@ import {
   cleanup,
   createMinimalState,
   createTempDir,
-  setupNanoclawDir,
+  setupNanopodDir,
 } from './test-helpers.js';
 
 describe('path-remap', () => {
@@ -14,7 +14,7 @@ describe('path-remap', () => {
 
   beforeEach(() => {
     tmpDir = createTempDir();
-    setupNanoclawDir(tmpDir);
+    setupNanopodDir(tmpDir);
     createMinimalState(tmpDir);
     process.chdir(tmpDir);
   });

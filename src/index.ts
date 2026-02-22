@@ -302,7 +302,7 @@ async function startMessageLoop(): Promise<void> {
   }
   messageLoopRunning = true;
 
-  logger.info(`NanoClaw running (trigger: @${ASSISTANT_NAME})`);
+  logger.info(`NanoPod running (trigger: @${ASSISTANT_NAME})`);
 
   while (true) {
     try {
@@ -481,7 +481,7 @@ const isDirectRun =
 
 if (isDirectRun) {
   main().catch((err) => {
-    logger.error({ err }, 'Failed to start NanoClaw');
+    logger.error({ err }, 'Failed to start NanoPod');
     process.exit(1);
   });
 }

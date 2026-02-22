@@ -1,9 +1,9 @@
 ---
 name: setup
-description: Run initial NanoClaw setup. Use when user wants to install dependencies, authenticate WhatsApp, register their main channel, or start the background services. Triggers on "setup", "install", "configure nanoclaw", or first-time setup requests.
+description: Run initial NanoPod setup. Use when user wants to install dependencies, authenticate WhatsApp, register their main channel, or start the background services. Triggers on "setup", "install", "configure nanopod", or first-time setup requests.
 ---
 
-# NanoClaw Setup
+# NanoPod Setup
 
 Run setup scripts automatically. Only pause when user action is required (WhatsApp authentication, configuration choices). Scripts live in `.claude/skills/setup/scripts/` and emit structured status blocks to stdout. Verbose logs go to `logs/setup.log`.
 
@@ -148,7 +148,7 @@ Do NOT show options that don't apply to the user's setup. For example, don't off
 2. **If BUILD=failed:** Read `logs/setup.log`, fix the TypeScript error, re-run.
 3. **If GROUPS_IN_DB=0:** Check `logs/setup.log` for the sync output. Common causes: WhatsApp auth expired (re-run step 5), connection timeout (re-run sync script with longer timeout).
 4. Run `./.claude/skills/setup/scripts/05b-list-groups.sh` to get groups (pipe-separated JID|name lines). Do NOT display the output to the user.
-5. Pick the most likely candidates (e.g. groups with the trigger word or "NanoClaw" in the name, small/solo groups) and present them as AskUserQuestion options — show names only, not JIDs. Include an "Other" option if their group isn't listed. If they pick Other, search by name in the DB or re-run with a higher limit.
+5. Pick the most likely candidates (e.g. groups with the trigger word or "NanoPod" in the name, small/solo groups) and present them as AskUserQuestion options — show names only, not JIDs. Include an "Other" option if their group isn't listed. If they pick Other, search by name in the DB or re-run with a higher limit.
 
 ## 8. Register Channel
 
@@ -162,7 +162,7 @@ Run `./.claude/skills/setup/scripts/06-register-channel.sh` with args:
 
 ## 9. Mount Allowlist
 
-AskUserQuestion: Want the agent to access directories outside the NanoClaw project? (Git repos, project folders, documents, etc.)
+AskUserQuestion: Want the agent to access directories outside the NanoPod project? (Git repos, project folders, documents, etc.)
 
 **If no:** Run `./.claude/skills/setup/scripts/07-configure-mounts.sh --empty`
 
@@ -174,15 +174,15 @@ Tell user how to grant a group access: add `containerConfig.additionalMounts` to
 
 ## 10. Start Service
 
-If the service is already running (check `launchctl list | grep nanoclaw` on macOS), unload it first: `launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist` — then proceed with a clean install.
+If the service is already running (check `launchctl list | grep nanopod` on macOS), unload it first: `launchctl unload ~/Library/LaunchAgents/com.nanopod.plist` — then proceed with a clean install.
 
 Run `./.claude/skills/setup/scripts/08-setup-service.sh` and parse the status block.
 
 **If SERVICE_LOADED=false:**
 - Read `logs/setup.log` for the error.
 - Common fix: plist already loaded with different path. Unload the old one first, then re-run.
-- On macOS: check `launchctl list | grep nanoclaw` to see if it's loaded with an error status. If the PID column is `-` and the status column is non-zero, the service is crashing. Read `logs/nanoclaw.error.log` for the crash reason and fix it (common: wrong Node path, missing .env, missing auth).
-- On Linux: check `systemctl --user status nanoclaw` for the error and fix accordingly.
+- On macOS: check `launchctl list | grep nanopod` to see if it's loaded with an error status. If the PID column is `-` and the status column is non-zero, the service is crashing. Read `logs/nanopod.error.log` for the crash reason and fix it (common: wrong Node path, missing .env, missing auth).
+- On Linux: check `systemctl --user status nanopod` for the error and fix accordingly.
 - Re-run the setup-service script after fixing.
 
 ## 11. Verify
@@ -190,7 +190,7 @@ Run `./.claude/skills/setup/scripts/08-setup-service.sh` and parse the status bl
 Run `./.claude/skills/setup/scripts/09-verify.sh` and parse the status block.
 
 **If STATUS=failed, fix each failing component:**
-- SERVICE=stopped → run `npm run build` first, then restart: `launchctl kickstart -k gui/$(id -u)/com.nanoclaw` (macOS) or `systemctl --user restart nanoclaw` (Linux). Re-check.
+- SERVICE=stopped → run `npm run build` first, then restart: `launchctl kickstart -k gui/$(id -u)/com.nanopod` (macOS) or `systemctl --user restart nanopod` (Linux). Re-check.
 - SERVICE=not_found → re-run step 10.
 - CREDENTIALS=missing → re-run step 4.
 - WHATSAPP_AUTH=not_found → re-run step 5.
@@ -201,18 +201,18 @@ After fixing, re-run `09-verify.sh` to confirm everything passes.
 
 Tell user to test: send a message in their registered chat (with or without trigger depending on channel type).
 
-Show the log tail command: `tail -f logs/nanoclaw.log`
+Show the log tail command: `tail -f logs/nanopod.log`
 
 ## Troubleshooting
 
-**Service not starting:** Check `logs/nanoclaw.error.log`. Common causes: wrong Node path in plist (re-run step 10), missing `.env` (re-run step 4), missing WhatsApp auth (re-run step 5).
+**Service not starting:** Check `logs/nanopod.error.log`. Common causes: wrong Node path in plist (re-run step 10), missing `.env` (re-run step 4), missing WhatsApp auth (re-run step 5).
 
 **Container agent fails ("Claude Code process exited with code 1"):** Ensure the container runtime is running — start it with the appropriate command for your runtime. Check container logs in `groups/main/logs/container-*.log`.
 
-**No response to messages:** Verify the trigger pattern matches. Main channel and personal/solo chats don't need a prefix. Check the registered JID in the database: `sqlite3 store/messages.db "SELECT * FROM registered_groups"`. Check `logs/nanoclaw.log`.
+**No response to messages:** Verify the trigger pattern matches. Main channel and personal/solo chats don't need a prefix. Check the registered JID in the database: `sqlite3 store/messages.db "SELECT * FROM registered_groups"`. Check `logs/nanopod.log`.
 
 **Messages sent but not received (DMs):** WhatsApp may use LID (Linked Identity) JIDs. Check logs for LID translation. Verify the registered JID has no device suffix (should be `number@s.whatsapp.net`, not `number:0@s.whatsapp.net`).
 
-**WhatsApp disconnected:** Run `npm run auth` to re-authenticate, then `npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw`.
+**WhatsApp disconnected:** Run `npm run auth` to re-authenticate, then `npm run build && launchctl kickstart -k gui/$(id -u)/com.nanopod`.
 
-**Unload service:** `launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist`
+**Unload service:** `launchctl unload ~/Library/LaunchAgents/com.nanopod.plist`
