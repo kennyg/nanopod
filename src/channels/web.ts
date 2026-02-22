@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { ASSISTANT_NAME } from '../config.js';
 import { getRecentMessages, storeMessageDirect } from '../db.js';
 import { logger } from '../logger.js';
-import { Channel, NewMessage, OnChatMetadata, OnInboundMessage, RegisteredGroup } from '../types.js';
+import { Channel, MessageMetadata, NewMessage, OnChatMetadata, OnInboundMessage, RegisteredGroup } from '../types.js';
 import { getWebUiHtml, getRoomListHtml } from './web-ui.js';
 
 export interface WebChannelOpts {
@@ -57,14 +57,14 @@ export class WebChannel implements Channel {
     });
   }
 
-  async sendMessage(jid: string, text: string): Promise<void> {
+  async sendMessage(jid: string, text: string, metadata?: MessageMetadata): Promise<void> {
     if (!jid.startsWith('web:')) return;
 
     const msg = {
       id: `bot-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
       chat_jid: jid,
-      sender: 'bot',
-      sender_name: ASSISTANT_NAME,
+      sender: metadata?.senderName ?? 'bot',
+      sender_name: metadata?.senderName ?? ASSISTANT_NAME,
       content: text,
       timestamp: new Date().toISOString(),
       is_from_me: false,

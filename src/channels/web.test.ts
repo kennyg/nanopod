@@ -347,6 +347,38 @@ describe('WebChannel', () => {
     readerA.cancel();
   });
 
+  it('sendMessage without metadata uses default sender_name', async () => {
+    channel = new WebChannel(createOpts());
+    await channel.connect();
+
+    storeChatMetadata('web:default', new Date().toISOString(), 'Web Chat', 'web', false);
+
+    await channel.sendMessage('web:default', 'Hello from default');
+
+    const messages = getRecentMessages('web:default', 10);
+    expect(messages.length).toBe(1);
+    expect(messages[0].sender).toBe('bot');
+    // sender_name should be ASSISTANT_NAME (from config, resolved at runtime)
+    expect(messages[0].sender_name).toBeTruthy();
+    expect(messages[0].is_bot_message).toBeTruthy();
+  });
+
+  it('sendMessage with metadata.senderName uses custom sender', async () => {
+    channel = new WebChannel(createOpts());
+    await channel.connect();
+
+    storeChatMetadata('web:default', new Date().toISOString(), 'Web Chat', 'web', false);
+
+    await channel.sendMessage('web:default', 'Research complete', { senderName: 'Researcher' });
+
+    const messages = getRecentMessages('web:default', 10);
+    expect(messages.length).toBe(1);
+    expect(messages[0].sender).toBe('Researcher');
+    expect(messages[0].sender_name).toBe('Researcher');
+    expect(messages[0].content).toBe('Research complete');
+    expect(messages[0].is_bot_message).toBeTruthy();
+  });
+
   it('returns 404 when sending to non-existent room', async () => {
     channel = new WebChannel(createOpts());
     await channel.connect();

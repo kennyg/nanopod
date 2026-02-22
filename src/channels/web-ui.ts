@@ -52,6 +52,10 @@ export function getWebUiHtml(token: string, room: string): string {
     align-self: flex-start; background: #222244; color: #e0e0e0;
     border-bottom-left-radius: 4px;
   }
+  .msg .sender-label {
+    font-size: 11px; font-weight: 600; margin-bottom: 2px;
+    display: block; opacity: 0.7;
+  }
   .msg .time {
     font-size: 11px; color: #888; margin-top: 4px;
     display: block;
@@ -123,6 +127,14 @@ export function getWebUiHtml(token: string, room: string): string {
     const div = document.createElement('div');
     const isBot = msg.is_bot_message || (!msg.is_from_me && msg.sender === 'bot');
     div.className = 'msg ' + (isBot ? 'bot' : 'user');
+    // Show sender label for bot messages from subagents (sender differs from default 'bot')
+    if (isBot && msg.sender_name && msg.sender !== 'bot') {
+      const label = document.createElement('span');
+      label.className = 'sender-label';
+      label.textContent = msg.sender_name;
+      label.style.color = senderColor(msg.sender_name);
+      div.appendChild(label);
+    }
     const content = document.createElement('span');
     content.textContent = msg.content;
     div.appendChild(content);
@@ -132,6 +144,14 @@ export function getWebUiHtml(token: string, room: string): string {
     div.appendChild(time);
     messagesEl.appendChild(div);
     scrollToBottom();
+  }
+
+  // Deterministic color for a sender name
+  function senderColor(name) {
+    const colors = ['#7eb8da','#a78bfa','#f0abfc','#fbbf24','#34d399','#f87171','#60a5fa','#c084fc'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    return colors[Math.abs(hash) % colors.length];
   }
 
   // Load history
