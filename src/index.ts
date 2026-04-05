@@ -2,7 +2,9 @@ import fs from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 
-const { name: APP_NAME } = createRequire(import.meta.url)('../package.json') as { name: string };
+const { name: APP_NAME } = createRequire(import.meta.url)(
+  '../package.json',
+) as { name: string };
 
 import { OneCLI } from '@onecli-sh/sdk';
 
@@ -448,7 +450,7 @@ async function startMessageLoop(): Promise<void> {
   }
   messageLoopRunning = true;
 
-  logger.info(`NanoClaw running (default trigger: ${DEFAULT_TRIGGER})`);
+  logger.info(`${APP_NAME} running (default trigger: ${DEFAULT_TRIGGER})`);
 
   while (true) {
     try {
