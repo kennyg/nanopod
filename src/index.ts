@@ -1,5 +1,8 @@
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
+
+const { name: APP_NAME } = createRequire(import.meta.url)('../package.json') as { name: string };
 
 import { OneCLI } from '@onecli-sh/sdk';
 
@@ -764,7 +767,7 @@ const isDirectRun =
 
 if (isDirectRun) {
   main().catch((err) => {
-    logger.error({ err }, 'Failed to start NanoPod');
+    logger.error({ err }, `Failed to start ${APP_NAME}`);
     process.exit(1);
   });
 }

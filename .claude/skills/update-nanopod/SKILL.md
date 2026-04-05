@@ -24,6 +24,7 @@ These are the files NanoPod adds or intentionally modifies vs upstream. Conflict
 | `.gitignore` | Ignores `.nanopod/` runtime state dir | Keep ours |
 | `.env.example` | Documents `CONTAINER_RUNTIME_BIN` | Keep ours |
 | `launchd/com.nanopod.plist` | Service definition (label, log paths) | Keep ours |
+| `src/index.ts` | Reads `APP_NAME` from package.json for startup error message | Keep ours |
 | `.claude/skills/update-nanopod/` | This skill | Keep ours |
 
 **Name substitution rules** (applied after merge):
