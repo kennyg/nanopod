@@ -23,10 +23,12 @@ These are the files NanoPod adds or intentionally modifies vs upstream. Conflict
 | `container/build.sh` | Apple Container build script | Keep ours |
 | `.gitignore` | Ignores `.nanopod/` runtime state dir | Keep ours |
 | `.env.example` | Documents `CONTAINER_RUNTIME_BIN` | Keep ours |
+| `launchd/com.nanopod.plist` | Service definition (label, log paths) | Keep ours |
 | `.claude/skills/update-nanopod/` | This skill | Keep ours |
 
 **Name substitution rules** (applied after merge):
 - `"name": "nanoclaw"` → `"name": "nanopod"` in `package.json` only (avoids security keyword scanning)
+- `launchd/com.nanoclaw.plist` → rename to `launchd/com.nanopod.plist` if upstream resets it
 
 Everything else (`nanoclaw` in URLs, skill descriptions, changelog, source code) stays as-is.
 
@@ -244,5 +246,5 @@ git reset --hard <backup-tag>
 
 Restart service:
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist && launchctl load ~/Library/LaunchAgents/com.nanoclaw.plist
+launchctl unload ~/Library/LaunchAgents/com.nanopod.plist && launchctl load ~/Library/LaunchAgents/com.nanopod.plist
 ```
