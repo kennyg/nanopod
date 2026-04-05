@@ -42,9 +42,11 @@ describe('readonlyMountArgs', () => {
 });
 
 describe('stopContainer', () => {
-  it('returns stop command using CONTAINER_RUNTIME_BIN', () => {
-    expect(stopContainer('nanopod-test-123')).toBe(
-      `${CONTAINER_RUNTIME_BIN} stop nanopod-test-123`,
+  it('calls stop with -t 1 using CONTAINER_RUNTIME_BIN', () => {
+    stopContainer('nanopod-test-123');
+    expect(mockExecSync).toHaveBeenCalledWith(
+      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanopod-test-123`,
+      { stdio: 'pipe' },
     );
   });
 
@@ -127,12 +129,12 @@ describe('cleanupOrphans', () => {
     expect(mockExecSync).toHaveBeenCalledTimes(3);
     expect(mockExecSync).toHaveBeenNthCalledWith(
       2,
-      `${CONTAINER_RUNTIME_BIN} stop nanopod-group1-111`,
+      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanopod-group1-111`,
       { stdio: 'pipe' },
     );
     expect(mockExecSync).toHaveBeenNthCalledWith(
       3,
-      `${CONTAINER_RUNTIME_BIN} stop nanopod-group3-333`,
+      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanopod-group3-333`,
       { stdio: 'pipe' },
     );
     expect(logger.info).toHaveBeenCalledWith(
