@@ -32,18 +32,19 @@ beforeEach(() => {
 // --- Pure functions ---
 
 describe('readonlyMountArgs', () => {
-  it('returns -v flag with :ro suffix', () => {
+  it('returns --mount flag with type=bind and readonly', () => {
     const args = readonlyMountArgs('/host/path', '/container/path');
-    expect(args).toEqual(['-v', '/host/path:/container/path:ro']);
+    expect(args).toEqual([
+      '--mount',
+      'type=bind,source=/host/path,target=/container/path,readonly',
+    ]);
   });
 });
 
 describe('stopContainer', () => {
-  it('calls docker stop for valid container names', () => {
-    stopContainer('nanoclaw-test-123');
-    expect(mockExecSync).toHaveBeenCalledWith(
-      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanoclaw-test-123`,
-      { stdio: 'pipe' },
+  it('returns stop command using CONTAINER_RUNTIME_BIN', () => {
+    expect(stopContainer('nanopod-test-123')).toBe(
+      `${CONTAINER_RUNTIME_BIN} stop nanopod-test-123`,
     );
   });
 
@@ -68,18 +69,34 @@ describe('ensureContainerRuntimeRunning', () => {
     ensureContainerRuntimeRunning();
 
     expect(mockExecSync).toHaveBeenCalledTimes(1);
-    expect(mockExecSync).toHaveBeenCalledWith(`${CONTAINER_RUNTIME_BIN} info`, {
-      stdio: 'pipe',
-      timeout: 10000,
-    });
-    expect(logger.debug).toHaveBeenCalledWith(
-      'Container runtime already running',
+    expect(mockExecSync).toHaveBeenCalledWith(
+      `${CONTAINER_RUNTIME_BIN} system status`,
+      { stdio: 'pipe' },
     );
   });
 
-  it('throws when docker info fails', () => {
+  it('auto-starts when system status fails', () => {
+    // First call (system status) fails
     mockExecSync.mockImplementationOnce(() => {
-      throw new Error('Cannot connect to the Docker daemon');
+      throw new Error('not running');
+    });
+    // Second call (system start) succeeds
+    mockExecSync.mockReturnValueOnce('');
+
+    ensureContainerRuntimeRunning();
+
+    expect(mockExecSync).toHaveBeenCalledTimes(2);
+    expect(mockExecSync).toHaveBeenNthCalledWith(
+      2,
+      `${CONTAINER_RUNTIME_BIN} system start`,
+      { stdio: 'pipe', timeout: 30000 },
+    );
+    expect(logger.info).toHaveBeenCalledWith('Container runtime started');
+  });
+
+  it('throws when both status and start fail', () => {
+    mockExecSync.mockImplementation(() => {
+      throw new Error('failed');
     });
 
     expect(() => ensureContainerRuntimeRunning()).toThrow(
@@ -92,36 +109,40 @@ describe('ensureContainerRuntimeRunning', () => {
 // --- cleanupOrphans ---
 
 describe('cleanupOrphans', () => {
-  it('stops orphaned nanoclaw containers', () => {
-    // docker ps returns container names, one per line
-    mockExecSync.mockReturnValueOnce(
-      'nanoclaw-group1-111\nnanoclaw-group2-222\n',
-    );
+  it('stops orphaned nanopod containers from JSON output', () => {
+    // Apple Container ls returns JSON
+    const lsOutput = JSON.stringify([
+      { status: 'running', configuration: { id: 'nanopod-group1-111' } },
+      { status: 'stopped', configuration: { id: 'nanopod-group2-222' } },
+      { status: 'running', configuration: { id: 'nanopod-group3-333' } },
+      { status: 'running', configuration: { id: 'other-container' } },
+    ]);
+    mockExecSync.mockReturnValueOnce(lsOutput);
     // stop calls succeed
     mockExecSync.mockReturnValue('');
 
     cleanupOrphans();
 
-    // ps + 2 stop calls
+    // ls + 2 stop calls (only running nanopod- containers)
     expect(mockExecSync).toHaveBeenCalledTimes(3);
     expect(mockExecSync).toHaveBeenNthCalledWith(
       2,
-      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanoclaw-group1-111`,
+      `${CONTAINER_RUNTIME_BIN} stop nanopod-group1-111`,
       { stdio: 'pipe' },
     );
     expect(mockExecSync).toHaveBeenNthCalledWith(
       3,
-      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanoclaw-group2-222`,
+      `${CONTAINER_RUNTIME_BIN} stop nanopod-group3-333`,
       { stdio: 'pipe' },
     );
     expect(logger.info).toHaveBeenCalledWith(
-      { count: 2, names: ['nanoclaw-group1-111', 'nanoclaw-group2-222'] },
+      { count: 2, names: ['nanopod-group1-111', 'nanopod-group3-333'] },
       'Stopped orphaned containers',
     );
   });
 
   it('does nothing when no orphans exist', () => {
-    mockExecSync.mockReturnValueOnce('');
+    mockExecSync.mockReturnValueOnce('[]');
 
     cleanupOrphans();
 
@@ -129,9 +150,9 @@ describe('cleanupOrphans', () => {
     expect(logger.info).not.toHaveBeenCalled();
   });
 
-  it('warns and continues when ps fails', () => {
+  it('warns and continues when ls fails', () => {
     mockExecSync.mockImplementationOnce(() => {
-      throw new Error('docker not available');
+      throw new Error('container not available');
     });
 
     cleanupOrphans(); // should not throw
@@ -143,7 +164,11 @@ describe('cleanupOrphans', () => {
   });
 
   it('continues stopping remaining containers when one stop fails', () => {
-    mockExecSync.mockReturnValueOnce('nanoclaw-a-1\nnanoclaw-b-2\n');
+    const lsOutput = JSON.stringify([
+      { status: 'running', configuration: { id: 'nanopod-a-1' } },
+      { status: 'running', configuration: { id: 'nanopod-b-2' } },
+    ]);
+    mockExecSync.mockReturnValueOnce(lsOutput);
     // First stop fails
     mockExecSync.mockImplementationOnce(() => {
       throw new Error('already stopped');
@@ -155,7 +180,7 @@ describe('cleanupOrphans', () => {
 
     expect(mockExecSync).toHaveBeenCalledTimes(3);
     expect(logger.info).toHaveBeenCalledWith(
-      { count: 2, names: ['nanoclaw-a-1', 'nanoclaw-b-2'] },
+      { count: 2, names: ['nanopod-a-1', 'nanopod-b-2'] },
       'Stopped orphaned containers',
     );
   });
