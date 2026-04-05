@@ -84,10 +84,10 @@ export class IMessageChannel implements Channel {
     } catch (err) {
       logger.warn(
         { err },
-        'imessage: failed to open chat.db — ensure Full Disk Access is granted ' +
-          'to this process in System Settings > Privacy & Security > Full Disk Access',
+        'imessage: failed to open chat.db — grant Full Disk Access to this ' +
+          'process in System Settings > Privacy & Security > Full Disk Access, then restart',
       );
-      throw err;
+      return;
     }
 
     // Seed lastSeenRowid so we only deliver messages that arrive after startup.
@@ -193,7 +193,9 @@ export class IMessageChannel implements Channel {
   }
 }
 
-export function createIMessageChannel(opts: ChannelOpts): IMessageChannel | null {
+export function createIMessageChannel(
+  opts: ChannelOpts,
+): IMessageChannel | null {
   if (!fs.existsSync(CHAT_DB_PATH)) {
     logger.debug(
       { path: CHAT_DB_PATH },
