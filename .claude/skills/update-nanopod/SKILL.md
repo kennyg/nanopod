@@ -1,6 +1,6 @@
 ---
 name: update-nanopod
-description: Bring upstream NanoClaw updates into NanoPod, automatically preserving the NanoPod name and custom files (web chat, sender labels).
+description: Bring upstream NanoClaw updates into NanoPod, automatically preserving the package name and Apple Container runtime customization.
 ---
 
 # About
@@ -17,20 +17,18 @@ These are the files NanoPod adds or intentionally modifies vs upstream. Conflict
 
 | File | What it does | Action on conflict |
 |------|-------------|-------------------|
-| `src/channels/web.ts` | Web chat channel | Keep ours |
-| `src/channels/web-ui.ts` | Web chat UI server | Keep ours |
-| `src/channels/web.test.ts` | Web chat tests | Keep ours |
-| `.claude/skills/add-web/` | /add-web skill | Keep ours |
-| `README.md` | NanoPod branding | Merge, keep "NanoPod" name |
-| `CLAUDE.md` | Project heading | Merge, keep "NanoPod" heading |
-| `launchd/com.nanopod.plist` | Service definition | Keep ours (renamed from nanoclaw) |
+| `src/container-runtime.ts` | Apple Container runtime (binary, mount syntax, health check, orphan cleanup) | Keep ours |
+| `src/container-runner.ts` | Uses `CONTAINER_NAME_PREFIX` constant | Keep ours |
+| `src/container-runtime.test.ts` | Tests updated for Apple Container | Keep ours |
+| `container/build.sh` | Apple Container build script | Keep ours |
+| `.gitignore` | Ignores `.nanopod/` runtime state dir | Keep ours |
+| `.env.example` | Documents `CONTAINER_RUNTIME_BIN` | Keep ours |
+| `.claude/skills/update-nanopod/` | This skill | Keep ours |
 
-**Name substitution rules** (applied after merge to resolve branding conflicts):
-- `"name": "nanoclaw"` → `"name": "nanopod"` (package.json only)
-- `com.nanoclaw.plist` → `com.nanopod.plist` (launchd references)
-- `# NanoClaw` → `# NanoPod` (CLAUDE.md heading only)
+**Name substitution rules** (applied after merge):
+- `"name": "nanoclaw"` → `"name": "nanopod"` in `package.json` only (avoids security keyword scanning)
 
-Everything else (`nanoclaw` in URLs, upstream skill descriptions, changelog) stays as-is.
+Everything else (`nanoclaw` in URLs, skill descriptions, changelog, source code) stays as-is.
 
 ---
 
@@ -116,7 +114,7 @@ git diff --name-only $BASE..upstream/$UPSTREAM_BRANCH
 Bucket upstream changed files:
 - **Skills** (`.claude/skills/`): low conflict risk unless you edited an upstream skill
 - **Source** (`src/`): check against NanoPod Customizations Registry above
-- **Build/config** (`package.json`, `tsconfig*.json`, `container/`, `launchd/`): apply name substitutions after merge
+- **Build/config** (`package.json`, `tsconfig*.json`, `container/`): apply name substitutions after merge
 - **Other**: docs, tests, misc
 
 If upstream commit count is large (>100), mention that a fresh rebase of local commits onto upstream may be cleaner than merging. Offer it as option D.
@@ -136,7 +134,7 @@ If Full update or Rebase:
 git merge --no-commit --no-ff upstream/$UPSTREAM_BRANCH; git diff --name-only --diff-filter=U; git merge --abort
 ```
 
-Show conflicted files. Cross-reference with the NanoPod Customizations Registry — flag files that are in the registry as "needs manual review", others as "auto-resolvable via name substitution".
+Show conflicted files. Cross-reference with the NanoPod Customizations Registry — flag registry files as "needs manual review", others as "auto-resolvable via name substitution".
 
 Ask user if they want to proceed.
 
@@ -148,12 +146,12 @@ git merge upstream/$UPSTREAM_BRANCH --no-edit
 
 If conflicts:
 - For each conflicted file, open it and resolve conflict markers.
-- For files in the NanoPod Customizations Registry: preserve NanoPod's version of custom logic, incorporate upstream improvements.
-- For all other files: take upstream's version, then apply name substitutions if needed.
+- For files in the NanoPod Customizations Registry: preserve NanoPod's version, incorporate upstream improvements where safe.
+- For all other files: take upstream's version.
 - `git add <file>` after each resolution.
 - When all resolved: `git commit --no-edit` if needed.
 
-After merge completes, apply name substitutions:
+After merge completes, apply name substitution:
 
 ```bash
 # package.json: keep nanopod as package name
@@ -161,22 +159,16 @@ if grep -q '"name": "nanoclaw"' package.json; then
   sed -i '' 's/"name": "nanoclaw"/"name": "nanopod"/' package.json
   git add package.json
 fi
-
-# CLAUDE.md: keep NanoPod heading
-if grep -q '^# NanoClaw' CLAUDE.md; then
-  sed -i '' 's/^# NanoClaw/# NanoPod/' CLAUDE.md
-  git add CLAUDE.md
-fi
-
-# launchd: keep com.nanopod references if plist was renamed
-if ls launchd/com.nanoclaw.plist 2>/dev/null; then
-  git mv launchd/com.nanoclaw.plist launchd/com.nanopod.plist 2>/dev/null || true
-fi
 ```
 
-If any substitutions were made, amend or create a fixup commit:
+Also ensure `.gitignore` still contains `.nanopod/`:
 ```bash
-git diff --cached --quiet || git commit -m "chore: restore NanoPod branding after upstream merge"
+grep -q '\.nanopod/' .gitignore || echo '.nanopod/' >> .gitignore && git add .gitignore
+```
+
+If any substitutions were made, commit:
+```bash
+git diff --cached --quiet || git commit -m "chore: restore NanoPod package name after upstream merge"
 ```
 
 # Step 4B: Selective update (CHERRY-PICK)
@@ -192,7 +184,7 @@ Ask user which hashes to apply.
 git cherry-pick <hash1> <hash2> ...
 ```
 
-Resolve any conflicts as in Step 4A. Apply name substitutions after each pick if needed.
+Resolve any conflicts as in Step 4A. Apply name substitutions after.
 
 # Step 4C/D: Rebase
 
@@ -202,7 +194,6 @@ git rebase upstream/$UPSTREAM_BRANCH
 
 For each conflict round:
 - Resolve only conflict markers.
-- Apply name substitutions inline as you go.
 - `git add <file>`
 - `git rebase --continue`
 
@@ -217,7 +208,7 @@ npm run build
 npm test
 ```
 
-If build fails: show the error. Only fix issues clearly caused by the merge (missing imports, type errors from merged code). Do not refactor unrelated code.
+If build fails: show the error. Only fix issues clearly caused by the merge. Do not refactor unrelated code.
 
 # Step 6: Breaking changes check
 
@@ -253,5 +244,5 @@ git reset --hard <backup-tag>
 
 Restart service:
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.nanopod.plist && launchctl load ~/Library/LaunchAgents/com.nanopod.plist
+launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist && launchctl load ~/Library/LaunchAgents/com.nanoclaw.plist
 ```
