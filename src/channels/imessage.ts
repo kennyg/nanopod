@@ -81,11 +81,9 @@ export class IMessageChannel implements Channel {
   async connect(): Promise<void> {
     try {
       this.db = new Database(CHAT_DB_PATH, { readonly: true });
-    } catch (err) {
+    } catch {
       logger.warn(
-        { err },
-        'imessage: failed to open chat.db — grant Full Disk Access to this ' +
-          'process in System Settings > Privacy & Security > Full Disk Access, then restart',
+        'imessage: failed to open chat.db — grant Full Disk Access in System Settings > Privacy & Security > Full Disk Access, then restart',
       );
       return;
     }
