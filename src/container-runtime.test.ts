@@ -43,9 +43,9 @@ describe('readonlyMountArgs', () => {
 
 describe('stopContainer', () => {
   it('calls stop with -t 1 using CONTAINER_RUNTIME_BIN', () => {
-    stopContainer('nanopod-test-123');
+    stopContainer('nanoclaw-test-123');
     expect(mockExecSync).toHaveBeenCalledWith(
-      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanopod-test-123`,
+      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanoclaw-test-123`,
       { stdio: 'pipe' },
     );
   });
@@ -114,9 +114,9 @@ describe('cleanupOrphans', () => {
   it('stops orphaned nanopod containers from JSON output', () => {
     // Apple Container ls returns JSON
     const lsOutput = JSON.stringify([
-      { status: 'running', configuration: { id: 'nanopod-group1-111' } },
-      { status: 'stopped', configuration: { id: 'nanopod-group2-222' } },
-      { status: 'running', configuration: { id: 'nanopod-group3-333' } },
+      { status: 'running', configuration: { id: 'nanoclaw-group1-111' } },
+      { status: 'stopped', configuration: { id: 'nanoclaw-group2-222' } },
+      { status: 'running', configuration: { id: 'nanoclaw-group3-333' } },
       { status: 'running', configuration: { id: 'other-container' } },
     ]);
     mockExecSync.mockReturnValueOnce(lsOutput);
@@ -129,16 +129,16 @@ describe('cleanupOrphans', () => {
     expect(mockExecSync).toHaveBeenCalledTimes(3);
     expect(mockExecSync).toHaveBeenNthCalledWith(
       2,
-      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanopod-group1-111`,
+      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanoclaw-group1-111`,
       { stdio: 'pipe' },
     );
     expect(mockExecSync).toHaveBeenNthCalledWith(
       3,
-      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanopod-group3-333`,
+      `${CONTAINER_RUNTIME_BIN} stop -t 1 nanoclaw-group3-333`,
       { stdio: 'pipe' },
     );
     expect(logger.info).toHaveBeenCalledWith(
-      { count: 2, names: ['nanopod-group1-111', 'nanopod-group3-333'] },
+      { count: 2, names: ['nanoclaw-group1-111', 'nanoclaw-group3-333'] },
       'Stopped orphaned containers',
     );
   });
@@ -167,8 +167,8 @@ describe('cleanupOrphans', () => {
 
   it('continues stopping remaining containers when one stop fails', () => {
     const lsOutput = JSON.stringify([
-      { status: 'running', configuration: { id: 'nanopod-a-1' } },
-      { status: 'running', configuration: { id: 'nanopod-b-2' } },
+      { status: 'running', configuration: { id: 'nanoclaw-a-1' } },
+      { status: 'running', configuration: { id: 'nanoclaw-b-2' } },
     ]);
     mockExecSync.mockReturnValueOnce(lsOutput);
     // First stop fails
@@ -182,7 +182,7 @@ describe('cleanupOrphans', () => {
 
     expect(mockExecSync).toHaveBeenCalledTimes(3);
     expect(logger.info).toHaveBeenCalledWith(
-      { count: 2, names: ['nanopod-a-1', 'nanopod-b-2'] },
+      { count: 2, names: ['nanoclaw-a-1', 'nanoclaw-b-2'] },
       'Stopped orphaned containers',
     );
   });
